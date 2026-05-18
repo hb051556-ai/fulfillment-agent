@@ -58,16 +58,26 @@ async def place_order(order: OrderRequest):
             "eta": order.eta
         }
         
-        await database.insert_order(order_data)
-        
-        await agent.run_order_confirmed(
-            order.order_id,
-            order.customer_name,
-            order.channel,
-            order.eta
+        result = await agent.run_orchestrator(
+            "create order",
+            order_id=order.order_id,
+            customer=order.customer_name,
+            sku=order.sku,
+            address=order.address,
+            channel=order.channel,
+            sla=order.sla,
+            eta=order.eta
         )
         
-        return {"success": True, "order_id": order.order_id, "message": "Order placed and notification sent"}
+        await agent.run_orchestrator(
+            "confirm order",
+            order_id=order.order_id,
+            customer=order.customer_name,
+            channel=order.channel,
+            eta=order.eta
+        )
+        
+        return {"success": True, "order_id": order.order_id, "message": result}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -79,14 +89,15 @@ async def trigger_delay(req: DelayRequest):
         if not order:
             return {"success": False, "message": "Order not found"}
         
-        await agent.run_order_delayed(
-            req.order_id,
-            order["customer_name"],
-            order["channel"],
-            req.new_eta
+        result = await agent.run_orchestrator(
+            "delay order",
+            order_id=req.order_id,
+            customer=order["customer_name"],
+            channel=order["channel"],
+            new_eta=req.new_eta
         )
         
-        return {"success": True, "message": "Order delayed and notification sent"}
+        return {"success": True, "message": result}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -98,13 +109,14 @@ async def mark_delivered(req: DeliveredRequest):
         if not order:
             return {"success": False, "message": "Order not found"}
         
-        await agent.run_order_delivered(
-            req.order_id,
-            order["customer_name"],
-            order["channel"]
+        result = await agent.run_orchestrator(
+            "deliver order",
+            order_id=req.order_id,
+            customer=order["customer_name"],
+            channel=order["channel"]
         )
         
-        return {"success": True, "message": "Order delivered and notification sent"}
+        return {"success": True, "message": result}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
